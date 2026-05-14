@@ -32,6 +32,14 @@ assets_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 # Flask app initialization
 app = Flask(__name__, static_folder=os.path.join(build_path, "static"))
 
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    return response
+
 def get_anim(frames, framerate=30, skip_t = 1):
     """
     frames: list of N np.arrays (H x W x 3)

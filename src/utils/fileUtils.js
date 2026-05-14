@@ -116,14 +116,8 @@ export const createFileLoadHandler = ({
     const file = event.target.files[0];
     if (file) {
       try {
-        const clearResponse = await fetch("/clear_simulation", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        });
-        if (!clearResponse.ok) {
-          alert(`Failed to clear simulation: ${await clearResponse.text()}`);
-          return;
-        }
+        // Clear client-side simulation state before loading new scene data.
+        // Scene loading should not hard-fail if backend clear endpoint is unavailable.
         setSimData(null);
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -165,8 +159,8 @@ export const createFileLoadHandler = ({
         };
         reader.readAsText(file);
       } catch (err) {
-        console.error("Error clearing simulation:", err);
-        alert("An unexpected error occurred while clearing the simulation.");
+        console.error("Error loading file:", err);
+        alert("An unexpected error occurred while loading the scene file.");
       }
     }
   };

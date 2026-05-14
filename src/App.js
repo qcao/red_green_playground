@@ -3,6 +3,7 @@ import VideoPlayer from "./components/VideoPlayer";
 import NavigationBar from "./components/playground/NavigationBar";
 import SimulationSettingsPanel from "./components/playground/SimulationSettingsPanel";
 import SceneControlsPanel from "./components/playground/SceneControlsPanel";
+import SelectedEntityPanel from "./components/playground/SelectedEntityPanel";
 import TrajectoryScrubPanel from "./components/playground/TrajectoryScrubPanel";
 import OcclusionPresetsPanel from "./components/playground/OcclusionPresetsPanel";
 import DistractorControlsPanel from "./components/playground/DistractorControlsPanel";
@@ -52,6 +53,7 @@ function App() {
   // Trajectory scrub state
   const [scrubEnabled, setScrubEnabled] = useState(false);
   const [scrubFrame, setScrubFrame] = useState(0);
+  const [selectedEntityId, setSelectedEntityId] = useState(null);
 
   // Use hooks for state management
   const entitiesHook = useEntities(worldWidth, worldHeight);
@@ -68,6 +70,7 @@ function App() {
 
   const sceneTransformHook = useSceneTransform(entities, setEntities, worldWidth, worldHeight, movementUnit, setTargetDirection, setDirectionInput);
   const { moveScene, rotateScene } = sceneTransformHook;
+  const selectedEntity = entities.find((entity) => entity.id === selectedEntityId) || null;
 
   // Keyboard event listener for arrow keys
   useEffect(() => {
@@ -79,12 +82,27 @@ function App() {
         e.preventDefault();
         moveScene(e.key);
       }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedEntityId !== null) {
+        e.preventDefault();
+        deleteEntity(selectedEntityId);
+        setSelectedEntityId(null);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [moveScene]);
+  }, [moveScene, selectedEntityId, deleteEntity]);
+
+  useEffect(() => {
+    if (selectedEntityId === null) {
+      return;
+    }
+    const selectedStillExists = entities.some((entity) => entity.id === selectedEntityId);
+    if (!selectedStillExists) {
+      setSelectedEntityId(null);
+    }
+  }, [entities, selectedEntityId]);
 
   // Derive effective occluders after applying windows, and validate overlaps against that.
   const { entitiesForSimulation, occluderPieces } = getEntitiesWithWindowsApplied(entities);
@@ -112,6 +130,7 @@ function App() {
   // Wrapper for clearAllEntities to also clear simData and distractor data
   const handleClearAll = () => {
     clearAllEntities();
+    setSelectedEntityId(null);
     setSimData(null);
     resetDistractorParams();
   };
@@ -206,10 +225,6 @@ function App() {
     }
   };
 
-  const handleEntityDrag = (entity, d) => {
-    updateEntityFromDrag(entity, d);
-  };
-
   const handleEntityDragStop = (entity, d) => {
     updateEntityFromDrag(entity, d);
   };
@@ -239,10 +254,6 @@ function App() {
     };
     
     updateEntity(entity.id, updatedEntity);
-  };
-
-  const handleEntityResize = (entity, ref, position) => {
-    updateEntityFromResize(entity, ref, position);
   };
 
   const handleEntityResizeStop = (entity, ref, position) => {
@@ -332,10 +343,42 @@ function App() {
 
   const handleCanvasClick = () => {
     setContextMenu({ visible: false, x: 0, y: 0, entityId: null });
+    setSelectedEntityId(null);
   };
 
   const handleDeleteEntity = (id) => {
     deleteEntity(id);
+    if (id === selectedEntityId) {
+      setSelectedEntityId(null);
+    }
+  };
+
+  const handleSelectedEntityFieldChange = (field, value) => {
+    if (!selectedEntity) return;
+    const numericValue = Number(value);
+    if (Number.isNaN(numericValue)) return;
+
+    if (field === "directionDegrees" && selectedEntity.type === "target") {
+      handleUpdateTargetDirection(numericValue);
+      return;
+    }
+
+    const nextEntity = { ...selectedEntity };
+
+    if (field === "width" && selectedEntity.type !== "target") {
+      nextEntity.width = Math.max(INTERVAL, numericValue);
+    } else if (field === "height" && selectedEntity.type !== "target") {
+      nextEntity.height = Math.max(INTERVAL, numericValue);
+    } else if (field === "x" || field === "y") {
+      nextEntity[field] = numericValue;
+    } else {
+      return;
+    }
+
+    nextEntity.x = Math.max(0, Math.min(nextEntity.x, worldWidth - nextEntity.width));
+    nextEntity.y = Math.max(0, Math.min(nextEntity.y, worldHeight - nextEntity.height));
+
+    updateEntity(selectedEntity.id, nextEntity);
   };
 
   const handleUpdateTargetDirection = (angleDegrees) => {
@@ -428,6 +471,12 @@ function App() {
             hasEntities={entities.length > 0}
           />
 
+          <SelectedEntityPanel
+            selectedEntity={selectedEntity}
+            onChangeField={handleSelectedEntityFieldChange}
+            onDeleteEntity={handleDeleteEntity}
+          />
+
           <TrajectoryScrubPanel
             enabled={scrubEnabled}
             onToggleEnabled={handleToggleScrubEnabled}
@@ -484,6 +533,8 @@ function App() {
             onUpdateTargetDirection={handleUpdateTargetDirection}
             updateEntity={updateEntity}
             overlapRegions={overlapValidation.overlapRegions}
+            selectedEntityId={selectedEntityId}
+            onEntitySelect={setSelectedEntityId}
           />
 
           {/* Video Player Section */}

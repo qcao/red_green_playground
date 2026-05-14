@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { validateBallPositions } from '../utils/collisionUtils';
+import { postJson, postNoBody } from '../utils/apiUtils';
 
 /**
  * Hook for simulation management
@@ -39,13 +40,7 @@ export const useSimulation = () => {
     }
 
     try {
-      const response = await fetch('/simulate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-
-      const data = await response.json();
+      const data = await postJson('/simulate', requestBody);
       if (data.status === 'success') {
         setSimData(data.sim_data);
       } else {
@@ -56,16 +51,14 @@ export const useSimulation = () => {
     } catch (error) {
       if (!autoRun) {
         console.error('Error during simulation:', error);
+        alert(`Simulation failed: ${error.message}`);
       }
     }
   }, []);
 
   const clearSimulation = useCallback(async () => {
     try {
-      await fetch('/clear_simulation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      await postNoBody('/clear_simulation');
       setSimData(null);
     } catch (error) {
       console.error('Error clearing simulation:', error);

@@ -17,7 +17,9 @@ const EntityCanvas = ({
   onDeleteEntity,
   onUpdateTargetDirection,
   updateEntity,
-  overlapRegions = []
+  overlapRegions = [],
+  selectedEntityId,
+  onEntitySelect
 }) => {
   const px_scale = PX_SCALE;
   const border_px = BORDER_PX;
@@ -175,10 +177,24 @@ const EntityCanvas = ({
                   : entity.type === ENTITY_TYPES.OCCLUDER
                   ? "1px dashed rgba(15,23,42,0.6)"
                   : "0px solid black",
+              outline: selectedEntityId === entity.id ? "2px solid #2563eb" : "none",
+              outlineOffset: selectedEntityId === entity.id ? "2px" : "0px",
               cursor: "move",
               boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)"
             }}
-            onContextMenu={(e) => onEntityContextMenu(e, entity.id)}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              onEntitySelect(entity.id);
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEntitySelect(entity.id);
+            }}
+            onContextMenu={(e) => {
+              e.stopPropagation();
+              onEntitySelect(entity.id);
+              onEntityContextMenu(e, entity.id);
+            }}
           />
           {entity.type === "target" && renderDirectionPreview(entity)}
         </React.Fragment>
