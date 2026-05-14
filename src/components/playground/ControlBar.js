@@ -227,7 +227,11 @@ const ControlBar = ({
                 e.target.style.boxShadow = "0 2px 4px rgba(0, 0, 0, 0.1)";
               }
             }}
-            title={overlapWarning || undefined}
+            title={
+              overlapWarning
+                ? `${overlapWarning} — Keyboard: ⌘+Enter or Ctrl+Enter when scene is valid.`
+                : "Keyboard: ⌘+Enter (Mac) or Ctrl+Enter (Windows/Linux) to simulate"
+            }
           >
             {isValidPhysics ? "🚀 Simulate" : (overlapWarning ? "⚠️ Overlaps Detected" : "Invalid Physics")}
           </button>

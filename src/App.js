@@ -22,6 +22,7 @@ import { DEFAULT_RANDOM_DISTRACTOR_PARAMS, VID_RES, PX_SCALE, INTERVAL, BORDER_P
 
 function App() {
   const videoPlayerRef = useRef(null);
+  const handleSimulateRef = useRef(null);
 
   // Simulation parameters
   const [videoLength, setVideoLength] = useState(10);
@@ -160,6 +161,31 @@ function App() {
     setScrubFrame(0);
     handleSimulateBase(entitiesForSimulation, simulationParams, mode, keyDistractors, randomDistractorParams, autoRun);
   };
+  handleSimulateRef.current = handleSimulate;
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== "Enter" || (!e.metaKey && !e.ctrlKey)) {
+        return;
+      }
+      const el = e.target;
+      if (
+        el.tagName === "INPUT" ||
+        el.tagName === "TEXTAREA" ||
+        el.tagName === "SELECT" ||
+        el.isContentEditable
+      ) {
+        return;
+      }
+      if (!(isValidPhysics && overlapValidation.valid)) {
+        return;
+      }
+      e.preventDefault();
+      handleSimulateRef.current?.(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isValidPhysics, overlapValidation.valid]);
 
   // File operation handlers
   const handleFileLoad = createFileLoadHandler({
