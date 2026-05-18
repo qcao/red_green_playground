@@ -165,16 +165,14 @@ function App() {
 
   useEffect(() => {
     const onKeyDown = (e) => {
-      if (e.key !== "Enter" || (!e.metaKey && !e.ctrlKey)) {
-        return;
-      }
-      const el = e.target;
-      if (
-        el.tagName === "INPUT" ||
-        el.tagName === "TEXTAREA" ||
-        el.tagName === "SELECT" ||
-        el.isContentEditable
-      ) {
+      const isEnterKey =
+        e.key === "Enter" ||
+        e.key === "Return" ||
+        e.code === "Enter" ||
+        e.code === "NumpadEnter";
+      const hasShortcutModifier = e.metaKey || e.ctrlKey;
+
+      if (!isEnterKey || !hasShortcutModifier || e.isComposing) {
         return;
       }
       if (!(isValidPhysics && overlapValidation.valid)) {
@@ -183,8 +181,9 @@ function App() {
       e.preventDefault();
       handleSimulateRef.current?.(false);
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    // Capture phase makes shortcut more reliable when focused controls stop bubbling.
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [isValidPhysics, overlapValidation.valid]);
 
   // File operation handlers
