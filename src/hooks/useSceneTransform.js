@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { clamp } from '../utils/sceneUtils';
 
 /**
- * Hook for scene transformation operations (move, rotate)
+ * Hook for scene transformation operations (move, rotate, mirror)
  */
 export const useSceneTransform = (entities, setEntities, worldWidth, worldHeight, movementUnit, setTargetDirection, setDirectionInput) => {
   const moveScene = useCallback((direction) => {
@@ -157,9 +157,76 @@ export const useSceneTransform = (entities, setEntities, worldWidth, worldHeight
     });
   }, [entities.length, worldWidth, worldHeight, setEntities, setTargetDirection, setDirectionInput]);
 
+  const mirrorScene = useCallback((axis) => {
+    if (entities.length === 0) return;
+
+    const centerX = worldWidth / 2;
+    const centerY = worldHeight / 2;
+    const isHorizontal = axis === 'horizontal';
+    const isVertical = axis === 'vertical';
+    if (!isHorizontal && !isVertical) return;
+
+    setEntities((prevEntities) => {
+      const PRECISION = 1e6;
+      const updatedEntities = prevEntities.map((entity) => {
+        const entityCenterX = entity.x + entity.width / 2;
+        const entityCenterY = entity.y + entity.height / 2;
+
+        const mirroredCenterX = isVertical ? (2 * centerX - entityCenterX) : entityCenterX;
+        const mirroredCenterY = isHorizontal ? (2 * centerY - entityCenterY) : entityCenterY;
+
+        const rawX = Math.max(0, Math.min(mirroredCenterX - entity.width / 2, worldWidth - entity.width));
+        const rawY = Math.max(0, Math.min(mirroredCenterY - entity.height / 2, worldHeight - entity.height));
+        const newX = Math.round(rawX * PRECISION) / PRECISION;
+        const newY = Math.round(rawY * PRECISION) / PRECISION;
+
+        const updatedEntity = {
+          id: entity.id,
+          type: entity.type,
+          x: newX,
+          y: newY,
+          width: entity.width,
+          height: entity.height,
+        };
+
+        if (entity.type === 'target' || entity.direction !== undefined) {
+          const currentDirection = entity.direction || 0;
+          let newDirection = currentDirection;
+          if (isHorizontal) {
+            // Reflect across horizontal midline: (x, y) -> (x, -y), so angle -> -angle.
+            newDirection = -currentDirection;
+          } else if (isVertical) {
+            // Reflect across vertical midline: (x, y) -> (-x, y), so angle -> pi - angle.
+            newDirection = Math.PI - currentDirection;
+          }
+          while (newDirection > Math.PI) newDirection -= 2 * Math.PI;
+          while (newDirection < -Math.PI) newDirection += 2 * Math.PI;
+          updatedEntity.direction = newDirection;
+        }
+
+        Object.keys(entity).forEach((key) => {
+          if (!['id', 'type', 'x', 'y', 'width', 'height', 'direction'].includes(key)) {
+            updatedEntity[key] = entity[key];
+          }
+        });
+
+        return updatedEntity;
+      });
+
+      const targetEntity = updatedEntities.find((e) => e.type === 'target');
+      if (targetEntity && setTargetDirection && setDirectionInput) {
+        setTargetDirection(targetEntity.direction || 0);
+        setDirectionInput(((targetEntity.direction || 0) * (180 / Math.PI)).toString());
+      }
+
+      return updatedEntities;
+    });
+  }, [entities.length, worldWidth, worldHeight, setEntities, setTargetDirection, setDirectionInput]);
+
   return {
     moveScene,
     rotateScene,
+    mirrorScene,
   };
 };
 

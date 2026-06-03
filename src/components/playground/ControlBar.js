@@ -447,6 +447,7 @@ const ControlBar = ({
               fontWeight: "600",
               transition: "all 0.2s ease",
               margin: 0,
+              border: "none",
               boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
               display: "inline-block"
             }}

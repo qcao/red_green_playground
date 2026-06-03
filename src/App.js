@@ -70,7 +70,7 @@ function App() {
   const { targetDirection, setTargetDirection, directionInput, setDirectionInput, updateTargetDirection, handleDirectionInputChange } = targetDirectionHook;
 
   const sceneTransformHook = useSceneTransform(entities, setEntities, worldWidth, worldHeight, movementUnit, setTargetDirection, setDirectionInput);
-  const { moveScene, rotateScene } = sceneTransformHook;
+  const { moveScene, rotateScene, mirrorScene } = sceneTransformHook;
   const selectedEntity = entities.find((entity) => entity.id === selectedEntityId) || null;
 
   // Keyboard event listener for arrow keys
@@ -201,8 +201,9 @@ function App() {
     setTargetDirection,
     setDirectionInput,
     setShouldAutoSimulate,
+    setTrial_name,
     mode,
-    DEFAULT_RANDOM_DISTRACTOR_PARAMS
+    DEFAULT_RANDOM_DISTRACTOR_PARAMS,
   });
 
   const handleSetSaveDirectory = createSetSaveDirectoryHandler(setSaveDirectoryHandle);
@@ -493,6 +494,7 @@ function App() {
             movementUnit={movementUnit}
             onMovementUnitChange={setMovementUnit}
             onRotateScene={rotateScene}
+            onMirrorScene={mirrorScene}
             hasEntities={entities.length > 0}
           />
 

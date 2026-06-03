@@ -5,6 +5,7 @@
  * @param {Array} keyDistractors - Key distractors array
  * @param {Object} randomDistractorParams - Random distractor parameters
  * @param {Object} simulationParams - Simulation parameters
+ * @param {string} trialName - Trial name for this scene
  * @returns {Object} Init state data object
  */
 export const prepareInitStateData = (
@@ -12,11 +13,13 @@ export const prepareInitStateData = (
   mode,
   keyDistractors,
   randomDistractorParams,
-  simulationParams
+  simulationParams,
+  trialName
 ) => {
   const initStateData = {
     entities: entities,
-    simulationParams: simulationParams
+    simulationParams: simulationParams,
+    trialName: trialName
   };
   
   if (mode === 'distractor' && (keyDistractors.length > 0 || randomDistractorParams.probability > 0)) {
@@ -46,16 +49,72 @@ export const downloadJSON = (data, filename) => {
   URL.revokeObjectURL(url);
 };
 
+export const SCENE_ENTITIES_FILENAME = 'init_state_entities.json';
+
+/**
+ * Derive trial name from a loaded scene file.
+ * Prefer parent folder name when loading `init_state_entities.json`.
+ * Falls back to parsing the filename when folder metadata is unavailable.
+ * @param {File} file - Loaded scene file
+ * @returns {string} Trial name for the UI and save paths
+ */
+export const trialNameFromLoadedFile = (file) => {
+  const filename = file?.name || '';
+
+  // Best case: relative path is available (e.g. some browser contexts).
+  const relativePath = String(file?.webkitRelativePath || '').replace(/\\/g, '/');
+  if (relativePath) {
+    const parts = relativePath.split('/').filter(Boolean);
+    if (parts.length >= 2 && parts[parts.length - 1] === SCENE_ENTITIES_FILENAME) {
+      return parts[parts.length - 2];
+    }
+  }
+
+  // Some runtimes expose absolute path on File objects (non-standard).
+  const absolutePath = String(file?.path || '').replace(/\\/g, '/');
+  if (absolutePath) {
+    const parts = absolutePath.split('/').filter(Boolean);
+    if (parts.length >= 2 && parts[parts.length - 1] === SCENE_ENTITIES_FILENAME) {
+      return parts[parts.length - 2];
+    }
+  }
+
+  const base = String(filename)
+    .replace(/^.*[/\\]/, '')
+    .replace(/\.json$/i, '');
+
+  const knownSuffixes = [
+    '_init_state_entities',
+    '_simulation_data',
+    '_init_state',
+  ];
+
+  let name = base;
+  for (const suffix of knownSuffixes) {
+    if (name.toLowerCase().endsWith(suffix.toLowerCase())) {
+      name = name.slice(0, -suffix.length);
+      break;
+    }
+  }
+
+  if (name === 'init_state_entities' || name === 'simulation_data') {
+    return 'base';
+  }
+
+  return name.trim() || 'base';
+};
+
 /**
  * Parse loaded file data
  * @param {Object|Array} parsedData - Parsed JSON data
- * @returns {{entities: Array, hasDistractorData: boolean, distractorData?: Object, simulationParams?: Object}}
+ * @returns {{entities: Array, hasDistractorData: boolean, distractorData?: Object, simulationParams?: Object, trialName?: string}}
  */
 export const parseFileData = (parsedData) => {
   let parsedEntities;
   let hasDistractorData = false;
   let distractorData = null;
   let simulationParams = null;
+  let trialName = null;
   
   if (Array.isArray(parsedData)) {
     // Old format - just entities
@@ -66,6 +125,9 @@ export const parseFileData = (parsedData) => {
     
     if (parsedData.simulationParams) {
       simulationParams = parsedData.simulationParams;
+    }
+    if (typeof parsedData.trialName === 'string' && parsedData.trialName.trim()) {
+      trialName = parsedData.trialName.trim();
     }
     
     if (parsedData.distractorData || parsedData.hallucinationData) {
@@ -85,7 +147,8 @@ export const parseFileData = (parsedData) => {
     entities: parsedEntities,
     hasDistractorData,
     distractorData,
-    simulationParams
+    simulationParams,
+    trialName
   };
 };
 
@@ -109,58 +172,63 @@ export const createFileLoadHandler = ({
   setTargetDirection,
   setDirectionInput,
   setShouldAutoSimulate,
+  setTrial_name,
   mode,
   DEFAULT_RANDOM_DISTRACTOR_PARAMS
 }) => {
   return async (event) => {
     const file = event.target.files[0];
+    event.target.value = '';
     if (file) {
       try {
         // Clear client-side simulation state before loading new scene data.
-        // Scene loading should not hard-fail if backend clear endpoint is unavailable.
         setSimData(null);
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const parsedData = JSON.parse(e.target.result);
-            const { entities: parsedEntities, hasDistractorData, distractorData, simulationParams } = parseFileData(parsedData);
-            if (simulationParams) {
-              if (simulationParams.videoLength !== undefined) setVideoLength(simulationParams.videoLength);
-              if (simulationParams.ballSpeed !== undefined) setBallSpeed(simulationParams.ballSpeed);
-              if (simulationParams.fps !== undefined) setFps(simulationParams.fps);
-              if (simulationParams.worldWidth !== undefined) setWorldWidth(simulationParams.worldWidth);
-              if (simulationParams.worldHeight !== undefined) setWorldHeight(simulationParams.worldHeight);
-            }
-            if (distractorData) {
-              if (distractorData.keyDistractors || distractorData.keyHallucinations) {
-                setKeyDistractors(distractorData.keyDistractors || distractorData.keyHallucinations);
-              }
-              if (distractorData.randomDistractorParams || distractorData.randomHallucinationParams) {
-                setRandomDistractorParams(distractorData.randomDistractorParams || distractorData.randomHallucinationParams);
-              }
-            }
-            setEntities(parsedEntities);
-            const targetEntity = parsedEntities.find((entity) => entity.type === "target");
-            if (targetEntity) {
-              setTargetDirection(targetEntity.direction || 0);
-              setDirectionInput(((targetEntity.direction || 0) * (180 / Math.PI)).toString());
-            }
-            if (hasDistractorData && mode === "regular") {
-              setMode("distractor");
-            } else if (!hasDistractorData && mode === "distractor") {
-              setMode("regular");
-              setKeyDistractors([]);
-              setRandomDistractorParams(DEFAULT_RANDOM_DISTRACTOR_PARAMS);
-            }
-            setShouldAutoSimulate(true);
-          } catch (err) {
-            alert("Failed to parse file. Ensure it's a valid JSON format.");
+        if (setTrial_name) {
+          setTrial_name(trialNameFromLoadedFile(file));
+        }
+        const text = await file.text();
+        const parsedData = JSON.parse(text);
+        const {
+          entities: parsedEntities,
+          hasDistractorData,
+          distractorData,
+          simulationParams,
+          trialName
+        } = parseFileData(parsedData);
+        if (setTrial_name && trialName) {
+          setTrial_name(trialName);
+        }
+        if (simulationParams) {
+          if (simulationParams.videoLength !== undefined) setVideoLength(simulationParams.videoLength);
+          if (simulationParams.ballSpeed !== undefined) setBallSpeed(simulationParams.ballSpeed);
+          if (simulationParams.fps !== undefined) setFps(simulationParams.fps);
+          if (simulationParams.worldWidth !== undefined) setWorldWidth(simulationParams.worldWidth);
+          if (simulationParams.worldHeight !== undefined) setWorldHeight(simulationParams.worldHeight);
+        }
+        if (distractorData) {
+          if (distractorData.keyDistractors || distractorData.keyHallucinations) {
+            setKeyDistractors(distractorData.keyDistractors || distractorData.keyHallucinations);
           }
-        };
-        reader.readAsText(file);
+          if (distractorData.randomDistractorParams || distractorData.randomHallucinationParams) {
+            setRandomDistractorParams(distractorData.randomDistractorParams || distractorData.randomHallucinationParams);
+          }
+        }
+        setEntities(parsedEntities);
+        const targetEntity = parsedEntities.find((entity) => entity.type === "target");
+        if (targetEntity) {
+          setTargetDirection(targetEntity.direction || 0);
+          setDirectionInput(((targetEntity.direction || 0) * (180 / Math.PI)).toString());
+        }
+        if (hasDistractorData && mode === "regular") {
+          setMode("distractor");
+        } else if (!hasDistractorData && mode === "distractor") {
+          setMode("regular");
+          setKeyDistractors([]);
+          setRandomDistractorParams(DEFAULT_RANDOM_DISTRACTOR_PARAMS);
+        }
+        setShouldAutoSimulate(true);
       } catch (err) {
-        console.error("Error loading file:", err);
-        alert("An unexpected error occurred while loading the scene file.");
+        alert("Failed to parse file. Ensure it's a valid JSON format.");
       }
     }
   };
@@ -221,7 +289,7 @@ export const createSaveDataHandler = ({
     }
     if (!saveDirectoryHandle) {
       try {
-        const initStateData = prepareInitStateData(entities, mode, keyDistractors, randomDistractorParams, null);
+        const initStateData = prepareInitStateData(entities, mode, keyDistractors, randomDistractorParams, null, trial_name);
         downloadJSON(initStateData, `${trial_name}_init_state_entities.json`);
         downloadJSON(simData, `${trial_name}_simulation_data.json`);
         if (autoDownloadWebM && videoPlayerRef && videoPlayerRef.current) {
@@ -277,7 +345,7 @@ export const createSaveDataHandler = ({
       }
       const trialDirHandle = await saveDirectoryHandle.getDirectoryHandle(trial_name, { create: true });
       const simulationParams = { videoLength, ballSpeed, fps, worldWidth, worldHeight };
-      const initStateData = prepareInitStateData(entities, mode, keyDistractors, randomDistractorParams, simulationParams);
+      const initStateData = prepareInitStateData(entities, mode, keyDistractors, randomDistractorParams, simulationParams, trial_name);
       const entitiesFileHandle = await trialDirHandle.getFileHandle('init_state_entities.json', { create: true });
       const entitiesWritable = await entitiesFileHandle.createWritable();
       await entitiesWritable.write(JSON.stringify(initStateData, null, 2));
@@ -302,7 +370,7 @@ export const createSaveDataHandler = ({
       if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
         alert("Permission denied. Falling back to download files.");
         const simulationParams = { videoLength, ballSpeed, fps, worldWidth, worldHeight };
-        const initStateData = prepareInitStateData(entities, mode, keyDistractors, randomDistractorParams, simulationParams);
+        const initStateData = prepareInitStateData(entities, mode, keyDistractors, randomDistractorParams, simulationParams, trial_name);
         downloadJSON(initStateData, `${trial_name}_init_state_entities.json`);
         downloadJSON(simData, `${trial_name}_simulation_data.json`);
         alert("Files downloaded successfully!");

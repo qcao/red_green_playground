@@ -1,6 +1,6 @@
 import React from 'react';
 
-const SceneControlsPanel = ({ movementUnit, onMovementUnitChange, onRotateScene, hasEntities }) => {
+const SceneControlsPanel = ({ movementUnit, onMovementUnitChange, onRotateScene, onMirrorScene, hasEntities }) => {
   return (
     <div style={{ 
       background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)", 
@@ -158,6 +158,99 @@ const SceneControlsPanel = ({ movementUnit, onMovementUnitChange, onRotateScene,
           marginTop: '6px' 
         }}>
           Rotate all elements 90° about scene center
+        </div>
+      </div>
+
+      <div style={{ marginTop: '20px' }}>
+        <label style={{ 
+          display: 'block', 
+          fontSize: '14px', 
+          fontWeight: '600', 
+          color: '#374151', 
+          marginBottom: '12px',
+          letterSpacing: '0.025em'
+        }}>
+          Mirror Scene
+        </label>
+        <div style={{ 
+          display: 'flex', 
+          gap: '8px'
+        }}>
+          <button
+            onClick={() => onMirrorScene('horizontal')}
+            disabled={!hasEntities}
+            style={{
+              flex: 1,
+              background: hasEntities 
+                ? "linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)" 
+                : "linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)",
+              color: "white",
+              padding: "10px 14px",
+              borderRadius: "8px",
+              border: "none",
+              fontSize: "13px",
+              fontWeight: "600",
+              cursor: hasEntities ? "pointer" : "not-allowed",
+              transition: "all 0.2s ease",
+              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+              opacity: hasEntities ? 1 : 0.5
+            }}
+            onMouseEnter={(e) => {
+              if (hasEntities) {
+                e.target.style.transform = "translateY(-1px)";
+                e.target.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.15)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (hasEntities) {
+                e.target.style.transform = "translateY(0)";
+                e.target.style.boxShadow = "0 2px 4px rgba(0, 0, 0, 0.1)";
+              }
+            }}
+          >
+            ↕ Mirror Horizontal
+          </button>
+          <button
+            onClick={() => onMirrorScene('vertical')}
+            disabled={!hasEntities}
+            style={{
+              flex: 1,
+              background: hasEntities 
+                ? "linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)" 
+                : "linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)",
+              color: "white",
+              padding: "10px 14px",
+              borderRadius: "8px",
+              border: "none",
+              fontSize: "13px",
+              fontWeight: "600",
+              cursor: hasEntities ? "pointer" : "not-allowed",
+              transition: "all 0.2s ease",
+              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+              opacity: hasEntities ? 1 : 0.5
+            }}
+            onMouseEnter={(e) => {
+              if (hasEntities) {
+                e.target.style.transform = "translateY(-1px)";
+                e.target.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.15)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (hasEntities) {
+                e.target.style.transform = "translateY(0)";
+                e.target.style.boxShadow = "0 2px 4px rgba(0, 0, 0, 0.1)";
+              }
+            }}
+          >
+            ↔ Mirror Vertical
+          </button>
+        </div>
+        <div style={{ 
+          fontSize: '11px', 
+          color: '#9ca3af', 
+          marginTop: '6px' 
+        }}>
+          Mirror all elements across scene midlines
         </div>
       </div>
     </div>
